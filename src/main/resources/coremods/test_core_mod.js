@@ -1,4 +1,5 @@
 // 使用する各Javaクラスを取得
+var ASMAPI = Java.type('net.minecraftforge.coremod.api.ASMAPI');
 var Opcodes = Java.type('org.objectweb.asm.Opcodes');
 var VarInsnNode = Java.type('org.objectweb.asm.tree.VarInsnNode');
 var MethodInsnNode = Java.type('org.objectweb.asm.tree.MethodInsnNode');
@@ -40,7 +41,7 @@ function findTargetInsn(method) {
         var isTargetInsn = (
                 insn.getOpcode() == Opcodes.GETSTATIC
                 && insn.owner == 'net/minecraft/util/SoundEvents'
-                && (insn.name == 'field_187632_cP' || insn.name == 'ENTITY_ITEM_FRAME_ROTATE_ITEM'));   // バニラと易読化後の両方のフォールド名で判定
+                && insn.name == ASMAPI.mapField('field_187632_cP'));    // field_187632_cP = ENTITY_ITEM_FRAME_ROTATE_ITEM
         if (!isTargetInsn) continue;
         // insn == GETSTATIC net/minecraft/util/SoundEvents.ENTITY_ITEM_FRAME_ROTATE_ITEM : Lnet/minecraft/util/SoundEvent;
 
@@ -61,17 +62,22 @@ function findTargetInsn(method) {
 function insertEventHook(method, insn) {
     // this.playSound()呼び出しの直前にif (TestEventHook.onRotatingItemInItemFrame(this, player, hand)) return true;のinsnコードをを挿入する
     // まずはTestEventHook.onRotatingItemInItemFrame(this, player, hand)の呼び出し
-    method.instructions.insertBefore(insn, new VarInsnNode(Opcodes.ALOAD, 0));  // thisをロード
-    method.instructions.insertBefore(insn, new VarInsnNode(Opcodes.ALOAD, 1));  // playerをロード
-    method.instructions.insertBefore(insn, new VarInsnNode(Opcodes.ALOAD, 2));  // handをロード
-    method.instructions.insertBefore(insn, new MethodInsnNode(
-            Opcodes.INVOKESTATIC, 'com/example/testcoremod/TestEventHook', 'onRotatingItemInItemFrame',
-            '(Lnet/minecraft/entity/item/ItemFrameEntity;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/util/Hand;)Z', false)); // イベントを発生させる
     var label = new LabelNode();    // イベントがキャンセルされなかったときに飛ぶ位置のラベル
-    method.instructions.insertBefore(insn, new JumpInsnNode(Opcodes.IFEQ, label));  // 戻り値が0（false）ならイベントがキャンセルされなかったので通常処理へジャンプ
-    method.instructions.insertBefore(insn, new InsnNode(Opcodes.ICONST_1)); // イベントがキャンセルされたらtrueを...
-    method.instructions.insertBefore(insn, new InsnNode(Opcodes.IRETURN));  //   ItemFrameEntity#processInitialInteractの戻り値として返す
-    method.instructions.insertBefore(insn, label);  // イベントがキャンセルされなかったときはここへ飛ぶ
+    // 挿入するinsnコードのリストを生成
+    var list = ASMAPI.listOf(
+            new VarInsnNode(Opcodes.ALOAD, 0),  // thisをロード
+            new VarInsnNode(Opcodes.ALOAD, 1),  // thisをロード
+            new VarInsnNode(Opcodes.ALOAD, 2),  // handをロード
+            new MethodInsnNode(Opcodes.INVOKESTATIC, 'com/example/testcoremod/TestEventHook', 'onRotatingItemInItemFrame',
+                    '(Lnet/minecraft/entity/item/ItemFrameEntity;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/util/Hand;)Z', false),    // イベントを発生させる
+            new JumpInsnNode(Opcodes.IFEQ, label),  // 戻り値が0（false）ならイベントがキャンセルされなかったので通常処理へジャンプ
+            // 以下、イベントがキャンセルされた時の処理
+            new InsnNode(Opcodes.ICONST_1), // イベントがキャンセルされたらtrueを...
+            new InsnNode(Opcodes.IRETURN),  //   ItemFrameEntity#processInitialInteractの戻り値として返す
+            // 以上、イベントがキャンセルされた時の処理
+            label   // イベントがキャンセルされなかったときはここへ飛ぶ
+            );
 
+    method.instructions.insertBefore(insn, list);   // Insnコードを挿入
     print("Transformed!");
 }
