@@ -24,10 +24,6 @@ public class TestEventHook {
             hand = handIn;
         }
 
-        private void a(ItemFrameEntity itemFrameEntity, PlayerEntity playerIn, Hand handIn) {
-
-        }
-
         public PlayerEntity getPlayer() {
             return entityPlayer;
         }
