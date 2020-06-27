@@ -66,18 +66,18 @@ function insertEventHook(method, insn) {
     // 挿入するinsnコードのリストを生成
     var list = ASMAPI.listOf(
             new VarInsnNode(Opcodes.ALOAD, 0),  // thisをロード
-            new VarInsnNode(Opcodes.ALOAD, 1),  // thisをロード
+            new VarInsnNode(Opcodes.ALOAD, 1),  // playerをロード
             new VarInsnNode(Opcodes.ALOAD, 2),  // handをロード
             new MethodInsnNode(Opcodes.INVOKESTATIC, 'com/example/testcoremod/TestEventHook', 'onRotatingItemInItemFrame',
                     '(Lnet/minecraft/entity/item/ItemFrameEntity;Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/util/Hand;)Z', false),    // イベントを発生させる
             new JumpInsnNode(Opcodes.IFEQ, label),  // 戻り値が0（false）ならイベントがキャンセルされなかったので通常処理へジャンプ
-            // 以下、イベントがキャンセルされた時の処理
+                // 以下、イベントがキャンセルされた時の処理
             new InsnNode(Opcodes.ICONST_1), // イベントがキャンセルされたらtrueを...
             new InsnNode(Opcodes.IRETURN),  //   ItemFrameEntity#processInitialInteractの戻り値として返す
-            // 以上、イベントがキャンセルされた時の処理
+                // 以上、イベントがキャンセルされた時の処理
             label   // イベントがキャンセルされなかったときはここへ飛ぶ
             );
 
-    method.instructions.insertBefore(insn, list);   // Insnコードを挿入
+    method.instructions.insertBefore(insn, list);   // Insnコードリストをメソッドに挿入
     print("Transformed!");
 }
